@@ -61,16 +61,32 @@ public class jTPCCConnection
 	this.dbConn = dbConn;
 	this.dbType = dbType;
 	stmtNewOrderSelectStockBatch = new PreparedStatement[16];
+
 	String st = "SELECT s_i_id, s_w_id, s_quantity, s_data, " +
+			"       s_dist_01, s_dist_02, s_dist_03, s_dist_04, " +
+			"       s_dist_05, s_dist_06, s_dist_07, s_dist_08, " +
+			"       s_dist_09, s_dist_10 " +
+			"    FROM bmsql_stock " +
+			"    WHERE (s_w_id, s_i_id) in ((?,?)";
+	if(dbType == jTPCCConfig.DB_DORIS){
+		//格式调整
+		st = "SELECT s_i_id, s_w_id, s_quantity, s_data, " +
 				"       s_dist_01, s_dist_02, s_dist_03, s_dist_04, " +
 				"       s_dist_05, s_dist_06, s_dist_07, s_dist_08, " +
 				"       s_dist_09, s_dist_10 " +
 				"    FROM bmsql_stock " +
-				"    WHERE (s_w_id, s_i_id) in ((?,?)";
-	for (int i = 1; i <= 15; i ++) {
-		String stmtStr = st + ") FOR UPDATE";
-		stmtNewOrderSelectStockBatch[i] = dbConn.prepareStatement(stmtStr);
-		st += ",(?,?)";
+				"    WHERE (s_w_id=? and s_i_id=?) ";
+		for (int i = 1; i <= 15; i++) {
+			String stmtStr = st ;
+			stmtNewOrderSelectStockBatch[i] = dbConn.prepareStatement(stmtStr);
+			st += " or (s_w_id=? and s_i_id=?) ";
+		}
+	}else {
+		for (int i = 1; i <= 15; i++) {
+			String stmtStr = st + ") FOR UPDATE";
+			stmtNewOrderSelectStockBatch[i] = dbConn.prepareStatement(stmtStr);
+			st += ",(?,?)";
+		}
 	}
 	stmtNewOrderSelectItemBatch = new PreparedStatement[16];
 	st = "SELECT i_id, i_price, i_name, i_data " +
@@ -92,6 +108,12 @@ public class jTPCCConnection
 		"    FROM bmsql_district " +
 		"    WHERE d_w_id = ? AND d_id = ? " +
 		"    FOR UPDATE");
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtNewOrderSelectDist = dbConn.prepareStatement(
+				"SELECT d_tax, d_next_o_id " +
+						"    FROM bmsql_district " +
+						"    WHERE d_w_id = ? AND d_id = ? ");
+	}
 	stmtNewOrderUpdateDist = dbConn.prepareStatement(
 		"UPDATE bmsql_district " +
 		"    SET d_next_o_id = d_next_o_id + 1 " +
@@ -113,6 +135,15 @@ public class jTPCCConnection
 		"    FROM bmsql_stock " +
 		"    WHERE s_w_id = ? AND s_i_id = ? " +
 		"    FOR UPDATE");
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtNewOrderSelectStock = dbConn.prepareStatement(
+				"SELECT s_quantity, s_data, " +
+						"       s_dist_01, s_dist_02, s_dist_03, s_dist_04, " +
+						"       s_dist_05, s_dist_06, s_dist_07, s_dist_08, " +
+						"       s_dist_09, s_dist_10 " +
+						"    FROM bmsql_stock " +
+						"    WHERE s_w_id = ? AND s_i_id = ? " );
+	}
 	stmtNewOrderSelectItem = dbConn.prepareStatement(
 		"SELECT i_price, i_name, i_data " +
 		"    FROM bmsql_item " +
@@ -153,6 +184,15 @@ public class jTPCCConnection
 		"    FROM bmsql_customer " +
 		"    WHERE c_w_id = ? AND c_d_id = ? AND c_id = ? " +
 		"    FOR UPDATE");
+		if(dbType == jTPCCConfig.DB_DORIS){
+			stmtPaymentSelectCustomer = dbConn.prepareStatement(
+					"SELECT c_first, c_middle, c_last, c_street_1, c_street_2, " +
+							"       c_city, c_state, c_zip, c_phone, c_since, c_credit, " +
+							"       c_credit_lim, c_discount, c_balance " +
+							"    FROM bmsql_customer " +
+							"    WHERE c_w_id = ? AND c_d_id = ? AND c_id = ? " );
+		}
+
 	stmtPaymentSelectCustomerData = dbConn.prepareStatement(
 		"SELECT c_data " +
 		"    FROM bmsql_customer " +
@@ -226,6 +266,22 @@ public class jTPCCConnection
 		    "        ) " +
 		    "    ) AS L");
 		break;
+		case jTPCCConfig.DB_DORIS:
+			stmtStockLevelSelectLow = dbConn.prepareStatement(
+					"SELECT count(*) AS low_stock FROM (" +
+							"    SELECT s_w_id, s_i_id, s_quantity " +
+							"        FROM bmsql_stock " +
+							"        WHERE s_w_id = ? AND s_quantity < ? AND s_i_id IN (" +
+							"            SELECT ol_i_id " +
+							"                FROM bmsql_district " +
+							"                JOIN bmsql_order_line ON ol_w_id = d_w_id " +
+							"                 AND ol_d_id = d_id " +
+							"                 AND ol_o_id >= d_next_o_id - 20 " +
+							"                 AND ol_o_id < d_next_o_id " +
+							"                WHERE d_w_id = ? AND d_id = ? " +
+							"        ) " +
+							"    ) AS L");
+			break;
 
 	    default:
 		stmtStockLevelSelectLow = dbConn.prepareStatement(
@@ -254,11 +310,33 @@ public class jTPCCConnection
         "    ORDER BY no_o_id ASC" +
         "    LIMIT 1" +
         "    FOR UPDATE");
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtDeliveryBGSelectOldestNewOrder = dbConn.prepareStatement(
+				"SELECT no_o_id " +
+						"    FROM bmsql_new_order " +
+						"    WHERE no_w_id = ? AND no_d_id = ? " +
+						"    ORDER BY no_o_id ASC" +
+						"    LIMIT 1");
+	}
 	stmtDeliveryBGDeleteOldestNewOrder = dbConn.prepareStatement(
 		"DELETE FROM bmsql_new_order " +
 		"    WHERE (no_w_id,no_d_id,no_o_id) IN (" +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)," +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?))");
+	if(dbType == jTPCCConfig.DB_DORIS) {
+		stmtDeliveryBGDeleteOldestNewOrder = dbConn.prepareStatement(
+				"DELETE FROM bmsql_new_order " +
+						"    WHERE (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " +
+						"or (no_w_id=? and no_d_id=? and no_o_id=?) " );
+	}
 
 	stmtDeliveryBGSelectOrder = dbConn.prepareStatement(
 		"SELECT o_c_id, o_d_id" +
@@ -266,6 +344,21 @@ public class jTPCCConnection
 		"    WHERE (o_w_id,o_d_id,o_id) IN (" +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)," +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?))");
+	if(dbType == jTPCCConfig.DB_DORIS) {
+		stmtDeliveryBGSelectOrder = dbConn.prepareStatement(
+				"SELECT o_c_id, o_d_id" +
+						"    FROM bmsql_oorder " +
+						"    WHERE (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " +
+						"or (o_w_id=? and o_d_id=? and o_id=?) " );
+	}
 
 	stmtDeliveryBGUpdateOrder = dbConn.prepareStatement(
 		"UPDATE bmsql_oorder " +
@@ -273,6 +366,21 @@ public class jTPCCConnection
 		"    WHERE (o_w_id,o_d_id,o_id) IN (" +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)," +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?))");
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtDeliveryBGUpdateOrder = dbConn.prepareStatement(
+				"UPDATE bmsql_oorder " +
+						"    SET o_carrier_id = ? " +
+						"    WHERE (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " +
+						" or (o_w_id=? and o_d_id=? and o_id=?) " );
+	}
 
 	stmtDeliveryBGSelectSumOLAmount = dbConn.prepareStatement(
 		"SELECT sum(ol_amount) AS sum_ol_amount, ol_d_id" +
@@ -281,7 +389,22 @@ public class jTPCCConnection
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)," +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)" +
 		") GROUP BY ol_d_id");
-
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtDeliveryBGSelectSumOLAmount = dbConn.prepareStatement(
+				"SELECT sum(ol_amount) AS sum_ol_amount, ol_d_id" +
+						"    FROM bmsql_order_line " +
+						"    WHERE (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=? ) " +
+						" GROUP BY ol_d_id");
+	}
 
 	stmtDeliveryBGUpdateOrderLine = dbConn.prepareStatement(
 		"UPDATE bmsql_order_line " +
@@ -289,6 +412,21 @@ public class jTPCCConnection
 		"    WHERE (ol_w_id,ol_d_id,ol_o_id) IN (" +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?)," +
 		"(?,?,?),(?,?,?),(?,?,?),(?,?,?),(?,?,?))");
+	if(dbType == jTPCCConfig.DB_DORIS){
+		stmtDeliveryBGUpdateOrderLine = dbConn.prepareStatement(
+				"UPDATE bmsql_order_line " +
+						"    SET ol_delivery_d = ? " +
+						"    WHERE (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " +
+						"or (ol_w_id=? and ol_d_id=? and ol_o_id=?) " );
+	}
 
 	stmtDeliveryBGUpdateCustomer = dbConn.prepareStatement(
 		"UPDATE bmsql_customer " +

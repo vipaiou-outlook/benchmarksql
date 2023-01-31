@@ -1,6 +1,6 @@
-db=mysql
+db=doris
 driver=com.mysql.jdbc.Driver
-conn=jdbc:mysql://localhost:9030/tpcc?useSSL=false&useServerPrepStmts=true&useConfigs=maxPerformance&rewriteBatchedStatements=true
+conn=jdbc:mysql://127.0.0.1:9030/tpcc?useSSL=false&useServerPrepStmts=true&useConfigs=maxPerformance&rewriteBatchedStatements=true
 user=root
 password=
 

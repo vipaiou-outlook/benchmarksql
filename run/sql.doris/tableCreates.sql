@@ -1,7 +1,9 @@
 create table bmsql_config (
   cfg_name    varchar(30) ,
   cfg_value   varchar(50)
-)DISTRIBUTED BY HASH(`cfg_name`) BUCKETS 1
+)
+unique key(`cfg_name`)
+DISTRIBUTED BY HASH(`cfg_name`) BUCKETS 1
 ;
 
 create table bmsql_warehouse (
@@ -14,7 +16,8 @@ create table bmsql_warehouse (
   w_city      varchar(20),
   w_state     char(2),
   w_zip       char(9)
-)DISTRIBUTED BY HASH(`w_id`) BUCKETS 16;
+)unique key(`w_id`)
+DISTRIBUTED BY HASH(`w_id`) BUCKETS 16;
 
 create table bmsql_district (
   d_w_id       integer       not null,
@@ -28,7 +31,8 @@ create table bmsql_district (
   d_city       varchar(20),
   d_state      char(2),
   d_zip        char(9)
-)DISTRIBUTED BY HASH(d_w_id, d_id) BUCKETS 16;
+)unique key(d_w_id, d_id)
+DISTRIBUTED BY HASH(d_w_id, d_id) BUCKETS 16;
 
 create table bmsql_customer (
   c_w_id         integer        not null,
@@ -52,7 +56,8 @@ create table bmsql_customer (
   c_since        DATETIME,
   c_middle       char(2),
   c_data         varchar(500)
-)DISTRIBUTED BY HASH(c_w_id, c_d_id, c_id) BUCKETS 4;
+)unique key(c_w_id, c_d_id, c_id)
+DISTRIBUTED BY HASH(c_w_id, c_d_id, c_id) BUCKETS 4;
 
 -- create sequence bmsql_hist_id_seq;
 
@@ -66,13 +71,15 @@ create table bmsql_history (
   h_date   DATETIME,
   h_amount decimal(6,2),
   h_data   varchar(24)
-)DISTRIBUTED BY HASH(hist_id) BUCKETS 4;
+)unique key(hist_id)
+DISTRIBUTED BY HASH(hist_id) BUCKETS 4;
 
 create table bmsql_new_order (
   no_w_id  integer   not null,
   no_d_id  integer   not null,
   no_o_id  integer   not null
-)DISTRIBUTED BY HASH(no_w_id, no_d_id, no_o_id) BUCKETS 4;
+)unique key(no_w_id, no_d_id, no_o_id)
+DISTRIBUTED BY HASH(no_w_id, no_d_id, no_o_id) BUCKETS 4;
 
 create table bmsql_oorder (
   o_w_id       integer      not null,
@@ -83,7 +90,8 @@ create table bmsql_oorder (
   o_ol_cnt     integer,
   o_all_local  integer,
   o_entry_d    DATETIME
-)DISTRIBUTED BY HASH(o_w_id, o_d_id, o_id) BUCKETS 4;
+)unique key(o_w_id, o_d_id, o_id)
+DISTRIBUTED BY HASH(o_w_id, o_d_id, o_id) BUCKETS 4;
 
 create table bmsql_order_line (
   ol_w_id         integer   not null,
@@ -96,7 +104,8 @@ create table bmsql_order_line (
   ol_supply_w_id  integer,
   ol_quantity     integer,
   ol_dist_info    char(24)
-)DISTRIBUTED BY HASH(ol_w_id, ol_d_id, ol_o_id, ol_number) BUCKETS 4;
+)unique key(ol_w_id, ol_d_id, ol_o_id, ol_number)
+DISTRIBUTED BY HASH(ol_w_id, ol_d_id, ol_o_id, ol_number) BUCKETS 4;
 
 create table bmsql_item (
   i_id     integer      not null,
@@ -104,7 +113,8 @@ create table bmsql_item (
   i_price  decimal(5,2),
   i_data   varchar(50),
   i_im_id  integer
-)DISTRIBUTED BY HASH(i_id) BUCKETS 4;
+)unique key(`i_id`)
+DISTRIBUTED BY HASH(i_id) BUCKETS 4;
 
 create table bmsql_stock (
   s_w_id       integer       not null,
@@ -124,4 +134,5 @@ create table bmsql_stock (
   s_dist_08    char(24),
   s_dist_09    char(24),
   s_dist_10    char(24)
-)DISTRIBUTED BY HASH(s_w_id, s_i_id) BUCKETS 4;
+)unique key(s_w_id, s_i_id)
+DISTRIBUTED BY HASH(s_w_id, s_i_id) BUCKETS 4;
