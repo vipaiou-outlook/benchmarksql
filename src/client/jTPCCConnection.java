@@ -221,8 +221,8 @@ public class jTPCCConnection
 	stmtPaymentInsertHistory = dbConn.prepareStatement(
 		"INSERT INTO bmsql_history (" +
 		"    h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, " +
-		"    h_date, h_amount, h_data) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+		"    h_date, h_amount, h_data, hist_id) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
 	// PreparedStatements for ORDER_STATUS
 	stmtOrderStatusSelectCustomerListByLast = dbConn.prepareStatement(

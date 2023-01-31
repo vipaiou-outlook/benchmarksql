@@ -6,6 +6,7 @@
  *
  */
 
+import com.sun.deploy.util.StringUtils;
 import org.apache.log4j.*;
 
 import java.util.*;
@@ -927,6 +928,7 @@ public class jTPCCTData
 	    stmt.setTimestamp(6, new java.sql.Timestamp(h_date));
 	    stmt.setDouble(7, payment.h_amount);
 	    stmt.setString(8, payment.w_name + "    " + payment.d_name);
+		stmt.setLong(9, Integer.valueOf(String.valueOf(System.currentTimeMillis()).substring(4,13)));
 	    stmt.executeUpdate();
 
 	    payment.h_date = new java.sql.Timestamp(h_date).toString();
