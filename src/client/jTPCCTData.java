@@ -6,7 +6,6 @@
  *
  */
 
-import com.sun.deploy.util.StringUtils;
 import org.apache.log4j.*;
 
 import java.util.*;
